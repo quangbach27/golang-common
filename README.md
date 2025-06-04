@@ -32,11 +32,11 @@ cd golang-common
 Add the repository:
 
 ```sh
-go get github.com/quangbach27/golang/common
+go get github.com/quangbach27/golang-common
 ```
 
 Import and use it in your code:
 
 ```sh
-import "github.com/quangbach27/golang/common"
+import "github.com/quangbach27/golang-common"
 ```
