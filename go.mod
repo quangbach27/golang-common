@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/ajg/form v1.5.1 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
@@ -19,6 +20,7 @@ require (
 )
 
 require (
+	github.com/go-chi/render v1.0.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
