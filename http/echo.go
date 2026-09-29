@@ -11,7 +11,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	"common/http/auth"
+	"github.com/quangbach27/golang-common/http/auth"
 )
 
 // publicPathSegment marks routes that need no authentication: every route

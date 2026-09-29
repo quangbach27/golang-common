@@ -4,7 +4,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"common"
+	"github.com/quangbach27/golang-common"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

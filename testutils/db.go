@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	commonDb "common/db"
+	commonDb "github.com/quangbach27/golang-common/db"
 )
 
 var (

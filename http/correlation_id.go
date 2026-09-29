@@ -4,7 +4,7 @@ import (
 	"context"
 	"uuid"
 
-	"common/log"
+	"github.com/quangbach27/golang-common/log"
 )
 
 type ctxKey int

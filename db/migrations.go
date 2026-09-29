@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"common/log"
+	"github.com/quangbach27/golang-common/log"
 )
 
 func MigrateDatabaseUp(

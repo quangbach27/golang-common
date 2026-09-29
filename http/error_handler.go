@@ -7,8 +7,8 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	"common"
-	"common/log"
+	"github.com/quangbach27/golang-common"
+	"github.com/quangbach27/golang-common/log"
 )
 
 func EchoErrorHandler(c *echo.Context, err error) {

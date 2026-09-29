@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`common` is a shared Go library module (`module common`, Go 1.27) used by the other sumni-finance internal services. It is not an application: there is no `main` package. Root package `common` holds cross-cutting primitives; subpackages are `db/`, `http/`, `log/`, and `testutils/`.
+`common` is a shared Go library module (`module github.com/quangbach27/golang-common`, Go 1.27) used by the other sumni-finance internal services. It is not an application: there is no `main` package. Root package `common` holds cross-cutting primitives; subpackages are `db/`, `http/`, `log/`, and `testutils/`.
 
 Key dependencies: `pgx/v5` (Postgres), `golang-migrate/migrate/v4` (migrations), `labstack/echo/v5` (HTTP), `cenkalti/backoff/v5` (retries), `ThreeDotsLabs/humanslog` (human-readable slog output), `testify` (tests).
 

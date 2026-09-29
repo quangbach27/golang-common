@@ -1,4 +1,4 @@
-module common
+module github.com/quangbach27/golang-common
 
 go 1.27.0
 

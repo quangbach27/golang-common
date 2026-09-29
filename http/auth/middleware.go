@@ -1,11 +1,11 @@
 package auth
 
 import (
-	"common"
 	"context"
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	"github.com/quangbach27/golang-common"
 )
 
 const bearerPrefix = "Bearer "
