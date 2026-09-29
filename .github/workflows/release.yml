@@ -1,0 +1,57 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version part to bump
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+jobs:
+  test:
+    name: Commit Stage
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/commit-stage.yml
+    permissions:
+      contents: read
+      security-events: write
+
+  release:
+    name: Tag and Release
+    needs: [test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          latest=${latest:-v0.0.0}
+          IFS=. read -r major minor patch <<< "${latest#v}"
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "version=v${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" --title "$VERSION" --generate-notes --verify-tag

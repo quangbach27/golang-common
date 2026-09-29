@@ -1,0 +1,70 @@
+name: Commit Stage
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  workflow_call:
+
+concurrency:
+  group: commit-stage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build and Test
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Check go.mod / go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        run: go build -v ./...
+
+      - uses: anchore/scan-action@v7
+        id: scan
+        with:
+          path: "."
+          fail-build: false
+          severity-cutoff: high
+
+      - name: Upload Anchore scan SARIF report
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
