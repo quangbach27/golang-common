@@ -5,10 +5,24 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
-	"github.com/quangbach27/golang-common"
+
+	common "github.com/quangbach27/golang-common"
 )
 
 const bearerPrefix = "Bearer "
+
+type Session struct {
+	Subject   string
+	SessionID string
+
+	Role string
+
+	Extra map[string]any
+}
+
+type TokenVerifier interface {
+	Verify(ctx context.Context, token string) (*Session, error)
+}
 
 func Middleware(verifier TokenVerifier, skip func(c *echo.Context) bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -55,12 +69,6 @@ func Middleware(verifier TokenVerifier, skip func(c *echo.Context) bool) echo.Mi
 	}
 }
 
-type Session struct {
-	UserID string
-	Roles  []string
-	Extra  map[string]any
-}
-
 type sessionKey struct{}
 
 func WithSession(ctx context.Context, s *Session) context.Context {
@@ -70,8 +78,4 @@ func WithSession(ctx context.Context, s *Session) context.Context {
 func SessionFromContext(ctx context.Context) (*Session, bool) {
 	s, ok := ctx.Value(sessionKey{}).(*Session)
 	return s, ok
-}
-
-type TokenVerifier interface {
-	Verify(ctx context.Context, token string) (*Session, error)
 }
