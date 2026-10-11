@@ -9,15 +9,38 @@ type Enum[T Enumerable] struct {
 	value string
 }
 
-func MustEnum[W ~struct{ Enum[T] }, T Enumerable](value string) W {
-	return W{MustEnumFromString[T](value)}
+func NewEnum[W ~struct{ Enum[T] }, T Enumerable](value string) (W, error) {
+	enum, err := NewEnumFromString[T](value)
+	if err != nil {
+		return W{}, err
+	}
+
+	return W{enum}, nil
 }
 
-func MustEnumFromString[T Enumerable](value string) Enum[T] {
+func MustEnum[W ~struct{ Enum[T] }, T Enumerable](value string) W {
+	w, err := NewEnum[W](value)
+	if err != nil {
+		panic(err)
+	}
+
+	return w
+}
+
+func NewEnumFromString[T Enumerable](value string) (Enum[T], error) {
 	var e Enum[T]
 	err := e.UnmarshalText([]byte(value))
 	if err != nil {
-		panic(fmt.Errorf("error unmarshalling enum value: %s", value))
+		return Enum[T]{}, fmt.Errorf("error unmarshalling enum value: %s", value)
+	}
+
+	return e, nil
+}
+
+func MustEnumFromString[T Enumerable](value string) Enum[T] {
+	e, err := NewEnumFromString[T](value)
+	if err != nil {
+		panic(err)
 	}
 
 	return e
