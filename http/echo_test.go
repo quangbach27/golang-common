@@ -1,9 +1,15 @@
 package http
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/labstack/echo/v5"
+
+	"github.com/quangbach27/golang-common/http/auth"
 )
 
 func validConfig() *EchoServerConfig {
@@ -144,5 +150,113 @@ func TestNewEchoServer_ValidConfig(t *testing.T) {
 	}
 	if server == nil {
 		t.Fatal("expected non-nil server")
+	}
+}
+
+func TestEchoServerConfig_Validate_Auth(t *testing.T) {
+	tests := []struct {
+		name   string
+		auth   AuthConfig
+		wantOK bool
+	}{
+		{
+			"valid",
+			AuthConfig{
+				PublicPaths:    []string{"/a"},
+				PublicPrefixes: []string{"/public/"},
+			},
+			true,
+		},
+		{
+			"blank path",
+			AuthConfig{PublicPaths: []string{""}},
+			false,
+		},
+		{
+			"path without slash",
+			AuthConfig{PublicPaths: []string{"a"}},
+			false,
+		},
+		{
+			"blank prefix",
+			AuthConfig{PublicPrefixes: []string{""}},
+			false,
+		},
+		{
+			"prefix without slash",
+			AuthConfig{PublicPrefixes: []string{"public"}},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := validConfig()
+			c.AuthConfig = tt.auth
+			if err := c.validate(); (err == nil) != tt.wantOK {
+				t.Fatalf("validate() err = %v, wantOK %v", err, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestNewEchoServerWithTokenVerifier_SkipPaths(t *testing.T) {
+	verifier := auth.NewStubTokenVerifier().Add("my-token", &auth.Session{Subject: "user-123"})
+	server, err := NewEchoServerWithTokenVerifier(verifier, func(c *EchoServerConfig) {
+		c.AuthConfig = AuthConfig{
+			PublicPaths:    []string{"/open"},
+			PublicPrefixes: []string{"/public/"},
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok := func(c *echo.Context) error { return c.NoContent(http.StatusOK) }
+	r := server.Router()
+	r.GET("/open", ok)
+	r.GET("/public/x", ok)
+	r.GET("/private", ok)
+
+	tests := []struct {
+		name, path, token string
+		want              int
+	}{
+		{
+			"public path",
+			"/open",
+			"",
+			http.StatusOK,
+		},
+		{
+			"public prefix",
+			"/public/x",
+			"",
+			http.StatusOK,
+		},
+		{
+			"private no token",
+			"/private",
+			"",
+			http.StatusUnauthorized,
+		},
+		{
+			"private with token",
+			"/private",
+			"my-token",
+			http.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			if tt.token != "" {
+				req.Header.Set("Authorization", "Bearer "+tt.token)
+			}
+			rec := httptest.NewRecorder()
+			server.router.ServeHTTP(rec, req)
+			if rec.Code != tt.want {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
+			}
+		})
 	}
 }

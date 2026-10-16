@@ -14,10 +14,6 @@ import (
 	"github.com/quangbach27/golang-common/http/auth"
 )
 
-// publicPathSegment marks routes that need no authentication: every route
-// registered under <APIPrefix>/public/.
-const publicPathSegment = "/public/"
-
 type EchoRouter interface {
 	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
 	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) echo.RouteInfo
@@ -31,8 +27,7 @@ type EchoRouter interface {
 }
 
 type EchoServer struct {
-	globalRouter    *echo.Echo
-	protectedRouter *echo.Group
+	router *echo.Echo
 
 	config *EchoServerConfig
 }
@@ -50,14 +45,9 @@ func NewEchoServer(updateConfigFns ...func(config *EchoServerConfig)) (*EchoServ
 	router.HTTPErrorHandler = EchoErrorHandler
 	router.Logger = slog.Default()
 
-	router.GET("/healthz", func(c *echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-
 	return &EchoServer{
-		globalRouter:    router,
-		protectedRouter: router.Group(""),
-		config:          config,
+		router: router,
+		config: config,
 	}, nil
 }
 
@@ -70,24 +60,13 @@ func NewEchoServerWithTokenVerifier(
 		return nil, err
 	}
 
-	server.protectedRouter.Use(
-		auth.Middleware(
-			tokenVerifier,
-			func(c *echo.Context) bool {
-				return strings.HasPrefix(c.Path(), publicPathSegment)
-			},
-		),
-	)
+	server.router.Use(auth.Middleware(tokenVerifier, server.config.AuthConfig.skipper()))
 
 	return server, nil
 }
 
-func (e *EchoServer) GlobalRouter() EchoRouter {
-	return e.globalRouter
-}
-
-func (e *EchoServer) ProtectedRouter() EchoRouter {
-	return e.protectedRouter
+func (e *EchoServer) Router() EchoRouter {
+	return e.router
 }
 
 func (e *EchoServer) Start(ctx context.Context) error {
@@ -102,7 +81,7 @@ func (e *EchoServer) Start(ctx context.Context) error {
 		},
 	}
 
-	if err := startConfig.Start(ctx, e.globalRouter); err != nil {
+	if err := startConfig.Start(ctx, e.router); err != nil {
 		return fmt.Errorf("starting http server failed: %w", err)
 	}
 
@@ -115,6 +94,7 @@ type EchoServerConfig struct {
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	AllowedOrigins    []string
+	AuthConfig        AuthConfig
 }
 
 func initConfig(updateConfigFns ...func(config *EchoServerConfig)) (*EchoServerConfig, error) {
@@ -138,6 +118,9 @@ func (c *EchoServerConfig) setDefault() {
 	c.IdleTimeout = 60 * time.Second
 	c.ReadHeaderTimeout = 45 * time.Second
 	c.AllowedOrigins = []string{"http://localhost:3000"}
+	c.AuthConfig = AuthConfig{
+		PublicPaths: []string{"/healthz"},
+	}
 }
 
 func (c *EchoServerConfig) validate() error {
@@ -164,6 +147,65 @@ func (c *EchoServerConfig) validate() error {
 			break
 		}
 	}
+	if err := c.AuthConfig.validate(); err != nil {
+		errs = append(errs, err)
+	}
 
-	return errors.Join(errs...)
+	if len(errs) != 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
+}
+
+// AuthConfig lists the routes that bypass the auth middleware. Entries are
+// matched against the registered route pattern (c.Path()).
+type AuthConfig struct {
+	// PublicPaths are routes that skip auth when the route pattern equals an
+	// entry exactly. E.g. "/login" skips "/login" but not "/login/reset".
+	PublicPaths []string
+	// PublicPrefixes are routes that skip auth when the route pattern starts
+	// with an entry. E.g. "/public/" skips "/public/docs" and "/public/a/b".
+	PublicPrefixes []string
+}
+
+func (a AuthConfig) skipper() func(c *echo.Context) bool {
+	paths := make(map[string]struct{}, len(a.PublicPaths))
+	for _, p := range a.PublicPaths {
+		paths[p] = struct{}{}
+	}
+
+	return func(c *echo.Context) bool {
+		path := c.Path()
+		if _, ok := paths[path]; ok {
+			return true
+		}
+		for _, prefix := range a.PublicPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func (a AuthConfig) validate() error {
+	var errs []error
+
+	check := func(name string, entries []string) {
+		for _, e := range entries {
+			if !strings.HasPrefix(e, "/") {
+				errs = append(errs, fmt.Errorf("auth %s entry must start with '/', got %q", name, e))
+			}
+		}
+	}
+
+	check("public paths", a.PublicPaths)
+	check("public prefixes", a.PublicPrefixes)
+
+	if len(errs) != 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
 }
