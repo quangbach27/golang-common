@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"time"
-	"unicode/utf8"
 	"uuid"
 
 	"github.com/labstack/echo/v5"
@@ -157,17 +156,6 @@ func requestLogMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		)
 		if err != nil {
 			logger = logger.With("error", err)
-		}
-		logger = logger.With("request_body", truncateBodyForLog(string(reqBody)))
-
-		body := resBody.String()
-		if utf8.ValidString(body) {
-			if isDebug := log.FromContext(ctx).Enabled(ctx, slog.LevelDebug); !isDebug {
-				body = truncateBodyForLog(body)
-			}
-			logger = logger.With("response_body", body)
-		} else {
-			logger = logger.With("response_body", "<binary data>")
 		}
 
 		logger.Info("Request done")
